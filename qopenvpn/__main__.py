@@ -133,6 +133,7 @@ class QOpenVPNWidget(QtWidgets.QWidget):
 
         self.create_actions()
         self.create_menu()
+        self.load_vpn_configs()
         self.create_icon()
         self.update_status()
 
@@ -165,10 +166,23 @@ class QOpenVPNWidget(QtWidgets.QWidget):
         self.trayIconMenu.addAction(self.startAction)
         self.trayIconMenu.addAction(self.stopAction)
         self.trayIconMenu.addSeparator()
+        self.vpnConfigsMenu = QtWidgets.QMenu(self.tr("VPN Configurations"), self)
+        self.trayIconMenu.addMenu(self.vpnConfigsMenu)
         self.trayIconMenu.addAction(self.settingsAction)
         self.trayIconMenu.addAction(self.logsAction)
         self.trayIconMenu.addSeparator()
         self.trayIconMenu.addAction(self.quitAction)
+
+    def load_vpn_configs(self):
+        """Load VPN configurations and add actions to the submenu"""
+        settings = QtCore.QSettings()
+        config_location = settings.value("config_location") or "/etc/openvpn/*.conf"
+
+        for f in sorted(glob.glob(config_location)):
+            vpn_name = os.path.splitext(os.path.basename(f))[0]
+            action = QtWidgets.QAction(vpn_name, self)
+            action.triggered.connect(lambda checked, name=vpn_name: self.switch_vpn_config(name))
+            self.vpnConfigsMenu.addAction(action)
 
     def create_icon(self):
         """Create system tray icon"""
@@ -276,6 +290,15 @@ class QOpenVPNWidget(QtWidgets.QWidget):
                 QtWidgets.QApplication.quit()
         else:
             QtWidgets.QApplication.quit()
+
+    def switch_vpn_config(self, vpn_name):
+        """Switch to the selected VPN configuration"""
+        settings = QtCore.QSettings()
+        settings.setValue("vpn_name", vpn_name)
+        # Stop and start the VPN to apply the new configuration
+        if self.vpn_enabled:
+            self.vpn_stop()
+        self.vpn_start()
 
 
 def main():
